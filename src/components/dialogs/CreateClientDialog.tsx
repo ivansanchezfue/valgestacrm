@@ -14,7 +14,7 @@ interface CreateClientDialogProps {
 const CreateClientDialog = ({ onCreated }: CreateClientDialogProps) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: "", type: "empresa" as "empresa" | "particular", email: "", phone: "", status: "lead" as string, sector: "", owner: "",
+    name: "", type: "empresa" as string, email: "", phone: "", status: "lead" as string, sector: "", owner: "",
   });
 
   const handleSave = () => {
@@ -22,11 +22,9 @@ const CreateClientDialog = ({ onCreated }: CreateClientDialogProps) => {
       toast.error("Nombre y email son obligatorios");
       return;
     }
-    const client = { ...form, id: Date.now().toString(), tags: [], createdAt: new Date().toISOString().split("T")[0] };
-    onCreated?.(client);
+    onCreated?.(form);
     setForm({ name: "", type: "empresa", email: "", phone: "", status: "lead", sector: "", owner: "" });
     setOpen(false);
-    toast.success("Cliente creado correctamente");
   };
 
   return (
@@ -41,23 +39,16 @@ const CreateClientDialog = ({ onCreated }: CreateClientDialogProps) => {
             <div className="space-y-2 sm:col-span-2"><Label>Nombre / Razón social *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Empresa S.L." /></div>
             <div className="space-y-2">
               <Label>Tipo</Label>
-              <Select value={form.type} onValueChange={v => setForm({ ...form, type: v as any })}>
+              <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="empresa">Empresa</SelectItem>
-                  <SelectItem value="particular">Particular</SelectItem>
-                </SelectContent>
+                <SelectContent><SelectItem value="empresa">Empresa</SelectItem><SelectItem value="particular">Particular</SelectItem></SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Estado</Label>
               <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lead">Lead</SelectItem>
-                  <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="inactivo">Inactivo</SelectItem>
-                </SelectContent>
+                <SelectContent><SelectItem value="lead">Lead</SelectItem><SelectItem value="activo">Activo</SelectItem><SelectItem value="inactivo">Inactivo</SelectItem></SelectContent>
               </Select>
             </div>
             <div className="space-y-2"><Label>Email *</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="correo@empresa.com" /></div>
