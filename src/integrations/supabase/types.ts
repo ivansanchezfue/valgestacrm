@@ -443,6 +443,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          observations: string | null
           priority: string | null
           service_id: string | null
           status: string | null
@@ -457,6 +458,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          observations?: string | null
           priority?: string | null
           service_id?: string | null
           status?: string | null
@@ -471,6 +473,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          observations?: string | null
           priority?: string | null
           service_id?: string | null
           status?: string | null
