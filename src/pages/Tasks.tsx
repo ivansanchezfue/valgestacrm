@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import CreateTaskDialog from "@/components/dialogs/CreateTaskDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Edit, Trash2, ArrowRight } from "lucide-react";
+import { MoreHorizontal, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import React from "react";
 
@@ -65,23 +65,23 @@ const Tasks = () => {
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 border-4 border-accent border-t-transparent rounded-full" /></div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
           {Object.entries(grouped).map(([status, items]) => {
             const config = statusConfig[status];
             return (
-              <div key={status}>
-                <div className="flex items-center gap-2 mb-4">
+              <div key={status} className="min-w-0">
+                <div className="flex items-center gap-2 mb-4 sticky top-0 bg-background z-10 py-1">
                   <config.icon className={`h-4 w-4 ${config.color}`} />
                   <h3 className="font-semibold text-foreground">{statusLabels[status]}</h3>
-                  <span className="ml-auto text-xs text-muted-foreground">{items.length}</span>
+                  <Badge variant="secondary" className="ml-auto text-xs">{items.length}</Badge>
                 </div>
                 <div className="space-y-3">
                   {items.map((task: any) => (
                     <motion.div key={task.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border p-4 card-hover">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">{task.title}</p>
-                        <div className="flex items-center gap-1">
-                          <Badge variant="secondary" className={`text-[10px] shrink-0 ${priorityStyles[task.priority]}`}>{task.priority}</Badge>
+                        <p className="text-sm font-medium text-foreground line-clamp-2 flex-1">{task.title}</p>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Badge variant="secondary" className={`text-[10px] ${priorityStyles[task.priority]}`}>{task.priority}</Badge>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -95,15 +95,28 @@ const Tasks = () => {
                           </DropdownMenu>
                         </div>
                       </div>
-                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{task.assignee}</span>
-                        <span>{task.due_date}</span>
+
+                      {task.description && (
+                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{task.description}</p>
+                      )}
+
+                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground gap-2 flex-wrap">
+                        {task.assignee && <span className="bg-muted px-2 py-0.5 rounded-md truncate max-w-[120px]">{task.assignee}</span>}
+                        {task.due_date && (
+                          <span className="bg-muted px-2 py-0.5 rounded-md whitespace-nowrap">
+                            📅 {new Date(task.due_date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                          </span>
+                        )}
                       </div>
+
                       {task.client_id && clientMap[task.client_id] && (
-                        <p className="text-xs text-accent font-medium mt-2">{clientMap[task.client_id]}</p>
+                        <p className="text-xs text-accent font-medium mt-2 truncate">🏢 {clientMap[task.client_id]}</p>
                       )}
                     </motion.div>
                   ))}
+                  {items.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm opacity-60">Sin tareas</div>
+                  )}
                 </div>
               </div>
             );
