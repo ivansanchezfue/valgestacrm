@@ -15,7 +15,7 @@ interface CreateServiceDialogProps {
 const CreateServiceDialog = ({ onCreated }: CreateServiceDialogProps) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: "", description: "", price: "", type: "unico" as string, cycle: "mensual" as string, taxRate: "21",
+    name: "", description: "", price: "", type: "unico" as string, cycle: "mensual" as string, tax_rate: "21",
   });
 
   const handleSave = () => {
@@ -23,10 +23,9 @@ const CreateServiceDialog = ({ onCreated }: CreateServiceDialogProps) => {
       toast.error("Nombre y precio son obligatorios");
       return;
     }
-    onCreated?.({ ...form, id: Date.now().toString(), price: Number(form.price), taxRate: Number(form.taxRate), currency: "EUR", status: "activo" });
-    setForm({ name: "", description: "", price: "", type: "unico", cycle: "mensual", taxRate: "21" });
+    onCreated?.({ ...form, price: Number(form.price), tax_rate: Number(form.tax_rate), currency: "EUR", status: "activo", cycle: form.type === "recurrente" ? form.cycle : null });
+    setForm({ name: "", description: "", price: "", type: "unico", cycle: "mensual", tax_rate: "21" });
     setOpen(false);
-    toast.success("Servicio creado correctamente");
   };
 
   return (
@@ -41,17 +40,14 @@ const CreateServiceDialog = ({ onCreated }: CreateServiceDialogProps) => {
           <div className="space-y-2"><Label>Descripción</Label><Textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2"><Label>Precio (€) *</Label><Input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="0.00" /></div>
-            <div className="space-y-2"><Label>IVA (%)</Label><Input type="number" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: e.target.value })} /></div>
+            <div className="space-y-2"><Label>IVA (%)</Label><Input type="number" value={form.tax_rate} onChange={e => setForm({ ...form, tax_rate: e.target.value })} /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tipo</Label>
               <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unico">Único</SelectItem>
-                  <SelectItem value="recurrente">Recurrente</SelectItem>
-                </SelectContent>
+                <SelectContent><SelectItem value="unico">Único</SelectItem><SelectItem value="recurrente">Recurrente</SelectItem></SelectContent>
               </Select>
             </div>
             {form.type === "recurrente" && (
@@ -59,10 +55,7 @@ const CreateServiceDialog = ({ onCreated }: CreateServiceDialogProps) => {
                 <Label>Ciclo</Label>
                 <Select value={form.cycle} onValueChange={v => setForm({ ...form, cycle: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mensual">Mensual</SelectItem>
-                    <SelectItem value="anual">Anual</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="mensual">Mensual</SelectItem><SelectItem value="anual">Anual</SelectItem></SelectContent>
                 </Select>
               </div>
             )}

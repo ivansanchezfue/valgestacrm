@@ -10,12 +10,13 @@ import { toast } from "sonner";
 
 interface CreateTaskDialogProps {
   onCreated?: (task: any) => void;
+  clients?: any[];
 }
 
-const CreateTaskDialog = ({ onCreated }: CreateTaskDialogProps) => {
+const CreateTaskDialog = ({ onCreated, clients = [] }: CreateTaskDialogProps) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    title: "", description: "", priority: "media" as string, assignee: "", dueDate: "", clientName: "",
+    title: "", description: "", priority: "media" as string, assignee: "", due_date: "", client_id: "",
   });
 
   const handleSave = () => {
@@ -23,10 +24,9 @@ const CreateTaskDialog = ({ onCreated }: CreateTaskDialogProps) => {
       toast.error("El título es obligatorio");
       return;
     }
-    onCreated?.({ ...form, id: Date.now().toString(), status: "pendiente" });
-    setForm({ title: "", description: "", priority: "media", assignee: "", dueDate: "", clientName: "" });
+    onCreated?.({ ...form, status: "pendiente", client_id: form.client_id || null, due_date: form.due_date || null });
+    setForm({ title: "", description: "", priority: "media", assignee: "", due_date: "", client_id: "" });
     setOpen(false);
-    toast.success("Tarea creada correctamente");
   };
 
   return (
@@ -51,11 +51,20 @@ const CreateTaskDialog = ({ onCreated }: CreateTaskDialogProps) => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>Fecha límite</Label><Input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Fecha límite</Label><Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2"><Label>Asignado a</Label><Input value={form.assignee} onChange={e => setForm({ ...form, assignee: e.target.value })} placeholder="Nombre" /></div>
-            <div className="space-y-2"><Label>Cliente</Label><Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} placeholder="Cliente asociado" /></div>
+            <div className="space-y-2">
+              <Label>Cliente</Label>
+              <Select value={form.client_id} onValueChange={v => setForm({ ...form, client_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Sin cliente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin cliente</SelectItem>
+                  {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
