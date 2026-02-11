@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
-import { Plus, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
-import { tasks } from "@/data/mockData";
+import { useState } from "react";
+import { Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { tasks as initialTasks, Task } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import CreateTaskDialog from "@/components/dialogs/CreateTaskDialog";
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
   pendiente: { icon: Clock, color: "text-warning", bg: "bg-warning/10" },
@@ -25,28 +26,22 @@ const statusLabels: Record<string, string> = {
 };
 
 const Tasks = () => {
+  const [taskList, setTaskList] = useState<Task[]>(initialTasks);
+
   const grouped = {
-    pendiente: tasks.filter((t) => t.status === "pendiente"),
-    en_progreso: tasks.filter((t) => t.status === "en_progreso"),
-    completada: tasks.filter((t) => t.status === "completada"),
+    pendiente: taskList.filter((t) => t.status === "pendiente"),
+    en_progreso: taskList.filter((t) => t.status === "en_progreso"),
+    completada: taskList.filter((t) => t.status === "completada"),
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      <div className="flex items-center justify-between">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Tareas</h1>
-          <p className="text-muted-foreground mt-1">{tasks.length} tareas en total</p>
+          <p className="text-muted-foreground mt-1">{taskList.length} tareas en total</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nueva Tarea
-        </Button>
+        <CreateTaskDialog onCreated={(t) => setTaskList([...taskList, t])} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -61,25 +56,16 @@ const Tasks = () => {
               </div>
               <div className="space-y-3">
                 {items.map((task) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-card rounded-xl border p-4 card-hover cursor-pointer"
-                  >
+                  <motion.div key={task.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card rounded-xl border p-4 card-hover cursor-pointer">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-foreground">{task.title}</p>
-                      <Badge variant="secondary" className={`text-[10px] shrink-0 ${priorityStyles[task.priority]}`}>
-                        {task.priority}
-                      </Badge>
+                      <Badge variant="secondary" className={`text-[10px] shrink-0 ${priorityStyles[task.priority]}`}>{task.priority}</Badge>
                     </div>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{task.assignee}</span>
                       <span>{task.dueDate}</span>
                     </div>
-                    {task.clientName && (
-                      <p className="text-xs text-accent font-medium mt-2">{task.clientName}</p>
-                    )}
+                    {task.clientName && <p className="text-xs text-accent font-medium mt-2">{task.clientName}</p>}
                   </motion.div>
                 ))}
               </div>

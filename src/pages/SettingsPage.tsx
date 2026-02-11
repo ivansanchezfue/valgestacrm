@@ -1,11 +1,17 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   User,
   Shield,
   Bell,
-  Link,
+  Mail,
+  MessageSquare,
+  Send,
+  Calendar,
+  Key,
   Database,
   FileText,
+  Users,
   ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -14,31 +20,34 @@ const sections = [
   {
     title: "Cuenta",
     items: [
-      { icon: User, label: "Perfil", description: "Nombre, email, avatar", badge: null },
-      { icon: Shield, label: "Seguridad", description: "Contraseña, 2FA", badge: null },
-      { icon: Bell, label: "Notificaciones", description: "Email, push, in-app", badge: null },
+      { icon: User, label: "Perfil", description: "Nombre, email, avatar", path: "/settings/profile", badge: null },
+      { icon: Shield, label: "Seguridad", description: "Contraseña, 2FA", path: "/settings/security", badge: null },
+      { icon: Bell, label: "Notificaciones", description: "Email, push, in-app", path: "/settings/notifications", badge: null },
     ],
   },
   {
     title: "Administración",
     items: [
-      { icon: Shield, label: "Usuarios y Roles", description: "Gestionar equipo y permisos", badge: "Admin" },
-      { icon: Database, label: "Catálogos", description: "Etiquetas, estados, campos personalizados", badge: null },
-      { icon: FileText, label: "Plantillas", description: "Plantillas de email y mensajes", badge: null },
+      { icon: Users, label: "Usuarios y Roles", description: "Gestionar equipo y permisos", path: "/settings/users", badge: "Admin" },
+      { icon: Database, label: "Catálogos", description: "Etiquetas, estados, campos personalizados", path: "/settings/catalogs", badge: null },
+      { icon: FileText, label: "Plantillas", description: "Plantillas de email y mensajes", path: "/settings/templates", badge: null },
+      { icon: Key, label: "API Keys", description: "Claves de acceso a la API", path: "/settings/api-keys", badge: null },
     ],
   },
   {
     title: "Integraciones",
     items: [
-      { icon: Link, label: "Gmail / Outlook", description: "Cuentas de correo conectadas", badge: "2 conectadas" },
-      { icon: Link, label: "WhatsApp Business", description: "API de WhatsApp", badge: "Activo" },
-      { icon: Link, label: "Telegram Bot", description: "Bot de Telegram", badge: "Activo" },
-      { icon: Link, label: "Google Calendar", description: "Sincronización de eventos", badge: "Conectado" },
+      { icon: Mail, label: "Cuentas de Correo", description: "Gmail, Outlook, IMAP/POP, SMTP", path: "/settings/email", badge: "2 conectadas" },
+      { icon: MessageSquare, label: "WhatsApp Business", description: "API de WhatsApp", path: "/settings/whatsapp", badge: "Activo" },
+      { icon: Send, label: "Telegram Bot", description: "Bot de Telegram", path: "/settings/telegram", badge: "Activo" },
+      { icon: Calendar, label: "Google Calendar", description: "Sincronización de eventos", path: "/settings/calendar", badge: "Conectado" },
     ],
   },
 ];
 
 const SettingsPage = () => {
+  const navigate = useNavigate();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -60,6 +69,7 @@ const SettingsPage = () => {
             {section.items.map((item) => (
               <div
                 key={item.label}
+                onClick={() => navigate(item.path)}
                 className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors cursor-pointer"
               >
                 <div className="rounded-lg bg-muted p-2.5">

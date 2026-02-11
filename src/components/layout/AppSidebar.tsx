@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Zap,
+  X,
 } from "lucide-react";
 
 const navItems = [
@@ -22,19 +23,33 @@ const navItems = [
   { icon: Settings, label: "Ajustes", path: "/settings" },
 ];
 
-const AppSidebar = () => {
+interface AppSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const AppSidebar = ({ isOpen, onClose }: AppSidebarProps) => {
   const location = useLocation();
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col sidebar-gradient border-r border-sidebar-border">
+    <aside
+      className={`fixed left-0 top-0 z-40 flex h-screen w-64 flex-col sidebar-gradient border-r border-sidebar-border transition-transform duration-200 ${
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-6 border-b border-sidebar-border">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
-          <Zap className="h-5 w-5 text-accent-foreground" />
+      <div className="flex h-16 items-center justify-between px-6 border-b border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
+            <Zap className="h-5 w-5 text-accent-foreground" />
+          </div>
+          <span className="text-lg font-bold text-sidebar-foreground tracking-tight">
+            ValgestaCRM
+          </span>
         </div>
-        <span className="text-lg font-bold text-sidebar-foreground tracking-tight">
-          NimbusCRM
-        </span>
+        <button onClick={onClose} className="text-sidebar-muted hover:text-sidebar-foreground md:hidden">
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -49,6 +64,7 @@ const AppSidebar = () => {
             <Link
               key={item.path}
               to={item.path}
+              onClick={onClose}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                 isActive
                   ? "bg-sidebar-accent text-sidebar-primary"
@@ -75,7 +91,7 @@ const AppSidebar = () => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">Admin</p>
-            <p className="text-xs text-sidebar-muted truncate">admin@nimbus.io</p>
+            <p className="text-xs text-sidebar-muted truncate">admin@valgesta.com</p>
           </div>
           <button className="text-sidebar-muted hover:text-sidebar-foreground transition-colors">
             <LogOut className="h-4 w-4" />
