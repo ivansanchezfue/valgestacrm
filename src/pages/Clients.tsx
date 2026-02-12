@@ -13,6 +13,7 @@ import CreateClientDialog from "@/components/dialogs/CreateClientDialog";
 import EditClientDialog from "@/components/dialogs/EditClientDialog";
 import AssignServiceDialog from "@/components/dialogs/AssignServiceDialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusStyles: Record<string, string> = {
   activo: "bg-success/10 text-success border-success/20",
@@ -37,8 +38,27 @@ const Clients = () => {
   );
 
   const handleCreate = async (form: any) => {
-    await insertMutation.mutateAsync({ ...form, created_by: user?.id });
+    const result = await insertMutation.mutateAsync({ ...form, created_by: user?.id });
     toast.success("Cliente creado");
+
+    // Trigger new_lead automations
+    try {
+      const clientData = Array.isArray(result) ? result[0] : result;
+      await supabase.functions.invoke("run-automation", {
+        body: {
+          event: "new_lead",
+          client: {
+            id: clientData?.id || null,
+            name: form.name,
+            email: form.email,
+            phone: form.phone || "",
+            sector: form.sector || "",
+          },
+        },
+      });
+    } catch (err) {
+      console.error("Automation trigger error:", err);
+    }
   };
 
   const handleUpdate = async (data: any) => {
