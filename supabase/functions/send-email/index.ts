@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch email account config
     const { data: account, error: accError } = await supabase
       .from("email_accounts")
       .select("*")
@@ -39,20 +38,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Determine TLS config
-    const tls = account.ssl_mode === "ssl";
+    // SSL/TLS configuration based on ssl_mode
+    // ssl = direct TLS connection (ports 465, 993, 995)
+    // starttls = upgrade plain to TLS (port 587)
+    // none = no encryption
+    const sslMode = account.ssl_mode || "ssl";
+    const tls = sslMode === "ssl";
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: account.smtp_host,
-        port: account.smtp_port || 587,
-        tls,
-        auth: {
-          username: account.username || account.email,
-          password: account.password_encrypted || "",
-        },
+    const connectionConfig: any = {
+      hostname: account.smtp_host,
+      port: account.smtp_port || 587,
+      tls,
+      auth: {
+        username: account.username || account.email,
+        password: account.password_encrypted || "",
       },
-    });
+    };
+
+    // For STARTTLS: connect without TLS, then upgrade
+    if (sslMode === "starttls") {
+      connectionConfig.tls = false;
+    }
+
+    const client = new SMTPClient({ connection: connectionConfig });
 
     await client.send({
       from: account.display_name

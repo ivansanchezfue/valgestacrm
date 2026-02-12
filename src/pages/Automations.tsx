@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useSupabaseQuery, useSupabaseInsert, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import EditAutomationDialog from "@/components/dialogs/EditAutomationDialog";
 import DeleteConfirmDialog from "@/components/dialogs/DeleteConfirmDialog";
 
@@ -76,8 +77,22 @@ const Automations = () => {
     setDeleteId(null);
   };
 
-  const handleRun = (auto: any) => {
+  const handleRun = async (auto: any) => {
     toast.info(`Ejecutando "${auto.name}"...`);
+    try {
+      const { data, error } = await supabase.functions.invoke("run-automation", {
+        body: {
+          event: auto.trigger_type,
+          automationId: auto.id,
+          client: {},
+        },
+      });
+      if (error) throw error;
+      toast.success(`"${auto.name}" ejecutada: ${data?.executed || 0} resultado(s)`);
+    } catch (err: any) {
+      console.error("Run automation error:", err);
+      toast.error(`Error al ejecutar: ${err.message}`);
+    }
   };
 
   return (
