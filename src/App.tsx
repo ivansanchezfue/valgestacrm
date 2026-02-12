@@ -13,6 +13,7 @@ import Services from "./pages/Services";
 import Tasks from "./pages/Tasks";
 import Inbox from "./pages/Inbox";
 import Automations from "./pages/Automations";
+import InternalChat from "./pages/InternalChat";
 import Auth from "./pages/Auth";
 import SettingsPage from "./pages/SettingsPage";
 import SettingsProfile from "./pages/settings/SettingsProfile";
@@ -50,6 +51,7 @@ const AppRoutes = () => {
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/services" element={<Services />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/chat" element={<InternalChat />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/automations" element={<Automations />} />
         <Route path="/settings" element={<SettingsPage />} />

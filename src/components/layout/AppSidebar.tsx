@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Contact, Package, CheckSquare, MessageSquare, Settings, LogOut, Zap, X, Sun, Moon, ChevronLeft, ChevronRight,
+  LayoutDashboard, Users, Contact, Package, CheckSquare, MessageSquare, Settings, LogOut, Zap, X, Sun, Moon, ChevronLeft, ChevronRight, MessagesSquare,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -12,6 +12,7 @@ const navItems = [
   { icon: Contact, label: "Contactos", path: "/contacts" },
   { icon: Package, label: "Servicios", path: "/services" },
   { icon: CheckSquare, label: "Tareas", path: "/tasks" },
+  { icon: MessagesSquare, label: "Chat", path: "/chat" },
   { icon: MessageSquare, label: "Inbox", path: "/inbox" },
   { icon: Zap, label: "Automatizaciones", path: "/automations" },
   { icon: Settings, label: "Ajustes", path: "/settings" },
