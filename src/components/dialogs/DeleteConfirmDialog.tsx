@@ -2,22 +2,26 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 
-interface DeleteConfirmDialogProps {
+export interface DeleteConfirmDialogProps {
   title?: string;
   description?: string;
   onConfirm: () => void;
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-const DeleteConfirmDialog = ({ title = "¿Eliminar?", description = "Esta acción no se puede deshacer.", onConfirm, trigger }: DeleteConfirmDialogProps) => (
-  <AlertDialog>
-    <AlertDialogTrigger asChild>
-      {trigger || (
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      )}
-    </AlertDialogTrigger>
+const DeleteConfirmDialog = ({ title = "¿Eliminar?", description = "Esta acción no se puede deshacer.", onConfirm, trigger, open, onOpenChange }: DeleteConfirmDialogProps) => (
+  <AlertDialog open={open} onOpenChange={onOpenChange}>
+    {trigger !== undefined || open === undefined ? (
+      <AlertDialogTrigger asChild>
+        {trigger || (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </AlertDialogTrigger>
+    ) : null}
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>{title}</AlertDialogTitle>
