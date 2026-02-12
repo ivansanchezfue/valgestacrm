@@ -1,113 +1,98 @@
 
-# Plan: Observaciones, Documentos en Clientes y Confirmacion de Eliminacion
+# Plan: 2FA Operativo con Google Authenticator (TOTP)
 
 ## Resumen
 
-Tres mejoras: (1) campo de observaciones en el perfil de cada cliente, (2) subida y gestion de documentos asociados a clientes, (3) dialogo de confirmacion antes de eliminar clientes y contactos.
+Implementar autenticacion de dos factores completamente funcional usando la API MFA nativa del backend. El usuario podra activar 2FA desde Seguridad, escanear un QR real, verificar con un codigo de 6 digitos, y en cada inicio de sesion se le pedira el codigo TOTP.
 
-## 1. Confirmacion de Eliminacion en Clientes y Contactos
+## 1. Pagina de Seguridad - Activar/Desactivar 2FA
 
-Ya existe el componente `DeleteConfirmDialog` pero no se usa en las paginas de Clientes ni Contactos. Actualmente al pulsar "Eliminar" se borra directamente sin confirmacion.
+Reescribir la seccion 2FA en `SettingsSecurity.tsx`:
 
-**Cambios:**
-- En `Clients.tsx`: reemplazar el `DropdownMenuItem` de eliminar por un `DeleteConfirmDialog` con mensaje personalizado ("¿Estas seguro de eliminar este cliente?")
-- En `Contacts.tsx`: lo mismo para contactos
-- Se usara el estado `deleteId` para controlar que registro se va a eliminar con un `AlertDialog` controlado (no dentro del dropdown, para evitar problemas de cierre)
+- **Activar 2FA**: Al pulsar el switch, llamar a `supabase.auth.mfa.enroll({ factorType: 'totp' })` que devuelve un SVG del QR y un secreto manual.
+- **Mostrar QR**: Renderizar el SVG del codigo QR directamente en la pagina junto con la clave secreta en texto (para introduccion manual).
+- **Verificar**: El usuario introduce el codigo de 6 digitos de su app. Se llama a `supabase.auth.mfa.challenge()` y luego `supabase.auth.mfa.verify()` para activar el factor.
+- **Desactivar 2FA**: Llamar a `supabase.auth.mfa.unenroll({ factorId })` para eliminar el factor.
+- **Estado inicial**: Al cargar la pagina, consultar `supabase.auth.mfa.listFactors()` para saber si ya tiene 2FA activo.
 
-## 2. Campo de Observaciones en el Perfil del Cliente
+Se usara el componente `InputOTP` que ya existe en el proyecto para la entrada del codigo de 6 digitos.
 
-La tabla `clients` ya tiene una columna `notes` (text, nullable). Solo falta exponerla en la UI.
+## 2. Login con 2FA
 
-**Cambios:**
-- En `EditClientDialog.tsx`: anadir un campo `Textarea` para "Observaciones" que mapee a `notes`, ocupando el ancho completo del formulario
-- Actualizar el estado del formulario para incluir `notes`
+Modificar `Auth.tsx` y `AuthContext.tsx` para soportar el flujo MFA en el login:
 
-## 3. Subida de Documentos por Cliente
+- Tras `signInWithPassword`, verificar el nivel de autenticacion (AAL) con `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`.
+- Si el usuario tiene factores TOTP verificados y el nivel actual es `aal1` (solo contrasena), mostrar un segundo paso pidiendo el codigo de 6 digitos.
+- Llamar a `challenge()` + `verify()` con el codigo introducido para completar el login a nivel `aal2`.
+- Solo entonces navegar al dashboard.
 
-Se necesita almacenamiento de archivos vinculados a cada cliente.
+## 3. Proteccion de Rutas
 
-**Base de datos:**
-- Crear un bucket de Storage llamado `client-documents` (publico para lectura, con RLS)
-- Crear tabla `client_documents` con columnas: `id`, `client_id`, `file_name`, `file_path`, `file_type`, `file_size`, `uploaded_by`, `created_at`
-- RLS: usuarios autenticados pueden CRUD
-
-**Interfaz:**
-- En `EditClientDialog.tsx`: anadir una seccion con pestanas (Tabs) separando "Datos" y "Documentos"
-- Pestana "Documentos": input de archivo, lista de documentos subidos con nombre/tipo/fecha, boton de descarga y boton de eliminar cada documento
-- Formatos aceptados: PDF, JPG, PNG, XML, XLSX, DOC, etc.
+Actualizar `AuthContext.tsx` para exponer el estado MFA:
+- Nuevo campo `needsMfa: boolean` en el contexto.
+- En `Auth.tsx`, si `needsMfa` es true tras el login, mostrar el formulario de codigo TOTP en lugar de redirigir.
 
 ## Seccion Tecnica
 
-### Migracion SQL
-
-```sql
--- Bucket de Storage
-INSERT INTO storage.buckets (id, name, public) VALUES ('client-documents', 'client-documents', true);
-
--- Politicas de storage
-CREATE POLICY "Authenticated users can upload client documents"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'client-documents');
-
-CREATE POLICY "Authenticated users can view client documents"
-  ON storage.objects FOR SELECT TO authenticated
-  USING (bucket_id = 'client-documents');
-
-CREATE POLICY "Authenticated users can delete client documents"
-  ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'client-documents');
-
--- Tabla de metadatos de documentos
-CREATE TABLE public.client_documents (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
-  file_name text NOT NULL,
-  file_path text NOT NULL,
-  file_type text,
-  file_size bigint,
-  uploaded_by uuid REFERENCES public.profiles(id),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.client_documents ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Authenticated users full access client_documents"
-  ON public.client_documents FOR ALL TO authenticated
-  USING (true) WITH CHECK (true);
-```
-
-### Archivos a modificar/crear
+### Archivos a modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| Migracion SQL | Crear bucket, tabla `client_documents`, politicas RLS |
-| `src/pages/Clients.tsx` | Usar `DeleteConfirmDialog` con AlertDialog controlado |
-| `src/pages/Contacts.tsx` | Usar `DeleteConfirmDialog` con AlertDialog controlado |
-| `src/components/dialogs/EditClientDialog.tsx` | Anadir Tabs con "Datos" y "Documentos", campo observaciones, subida/listado de archivos |
-| `src/hooks/useSupabaseData.ts` | Anadir `client_documents` al tipo `TableName` |
+| `src/pages/settings/SettingsSecurity.tsx` | Reescribir seccion 2FA: enroll real con QR, verify, unenroll, listFactors |
+| `src/pages/Auth.tsx` | Anadir paso 2 de MFA tras login con contrasena |
+| `src/contexts/AuthContext.tsx` | Exponer estado MFA y metodo para verificar challenge |
 
-### Flujo de subida de documentos
+### Flujo de activacion de 2FA (Seguridad)
 
 ```text
-[Usuario selecciona archivo] --> input type="file"
-        |
-        v
-[Upload a Storage] --> supabase.storage.from('client-documents').upload(path, file)
-        |
-        v
-[Guardar metadatos] --> INSERT en client_documents (file_name, file_path, client_id, etc.)
-        |
-        v
-[Listar documentos] --> SELECT FROM client_documents WHERE client_id = :id
-        |
-        v
-[Descargar] --> supabase.storage.from('client-documents').getPublicUrl(path)
-[Eliminar] --> DELETE storage object + DELETE client_documents row
+[Switch ON] --> mfa.enroll({ factorType: 'totp' })
+     |
+     v
+[Mostrar QR SVG + secreto manual]
+     |
+     v
+[Usuario escanea QR en Google Authenticator]
+     |
+     v
+[Introduce codigo 6 digitos] --> mfa.challenge({ factorId })
+     |                                    |
+     v                                    v
+                                   mfa.verify({ factorId, challengeId, code })
+     |
+     v
+[2FA activado - factor verificado]
 ```
 
-### Logica de confirmacion de eliminacion
+### Flujo de login con 2FA
 
-En lugar de usar `DeleteConfirmDialog` dentro de un `DropdownMenu` (que causa problemas de cierre), se usara un `AlertDialog` controlado por estado:
-- `deleteId`: almacena el ID del cliente/contacto a eliminar
-- Al pulsar "Eliminar" en el dropdown, se guarda el ID y se abre el AlertDialog
-- Al confirmar, se ejecuta la eliminacion y se limpia el estado
+```text
+[Email + Password] --> signInWithPassword()
+     |
+     v
+[mfa.getAuthenticatorAssuranceLevel()]
+     |
+     +-- currentLevel == 'aal1' AND nextLevel == 'aal2'
+     |       |
+     |       v
+     |   [Mostrar input TOTP de 6 digitos]
+     |       |
+     |       v
+     |   mfa.challenge({ factorId }) --> mfa.verify({ factorId, challengeId, code })
+     |       |
+     |       v
+     |   [Login completo - navegar a /]
+     |
+     +-- currentLevel == 'aal1' AND nextLevel == 'aal1' (sin 2FA)
+             |
+             v
+         [Login completo - navegar a /]
+```
+
+### API de Supabase MFA utilizada
+
+- `supabase.auth.mfa.enroll({ factorType: 'totp' })` - Devuelve `{ id, type, totp: { qr_code, secret, uri } }`
+- `supabase.auth.mfa.challenge({ factorId })` - Devuelve `{ id }` (challenge ID)
+- `supabase.auth.mfa.verify({ factorId, challengeId, code })` - Verifica el codigo TOTP
+- `supabase.auth.mfa.unenroll({ factorId })` - Elimina el factor
+- `supabase.auth.mfa.listFactors()` - Lista factores activos
+- `supabase.auth.mfa.getAuthenticatorAssuranceLevel()` - Devuelve `{ currentLevel, nextLevel }`
