@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Send, Search, MoreVertical, Trash2, MessageSquarePlus, ArrowLeft } from "lucide-react";
+import { Send, MoreVertical, Trash2, MessageSquarePlus, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -47,8 +47,15 @@ const InternalChat = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [deleteChat, setDeleteChat] = useState<Chat | null>(null);
   const [sending, setSending] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedChatRef = useRef<Chat | null>(null);
+
+  // Keep ref in sync for use in realtime callbacks
+  useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -65,7 +72,6 @@ const InternalChat = () => {
 
     if (error) { console.error(error); return; }
 
-    // Load other user profiles
     const otherIds = (data || []).map(c => c.user1_id === user.id ? c.user2_id : c.user1_id);
     const uniqueIds = [...new Set(otherIds)];
 
@@ -82,7 +88,7 @@ const InternalChat = () => {
     setChats(enriched);
   }, [user]);
 
-  // Load messages for selected chat
+  // Load messages with deduplication
   const loadMessages = useCallback(async (chatId: string) => {
     const { data, error } = await supabase
       .from("internal_messages")
@@ -107,18 +113,22 @@ const InternalChat = () => {
     if (selectedChat) loadMessages(selectedChat.id);
   }, [selectedChat, loadMessages]);
 
-  // Realtime subscription
+  // Realtime subscription for messages with deduplication
   useEffect(() => {
     if (!selectedChat) return;
     const channel = supabase
-      .channel(`internal_messages_${selectedChat.id}`)
+      .channel(`msgs_${selectedChat.id}`)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
         table: "internal_messages",
         filter: `chat_id=eq.${selectedChat.id}`,
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new as Message]);
+        const newMsg = payload.new as Message;
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
         setTimeout(scrollToBottom, 100);
       })
       .subscribe();
@@ -129,7 +139,7 @@ const InternalChat = () => {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel("internal_chats_list")
+      .channel("chats_list")
       .on("postgres_changes", {
         event: "*",
         schema: "public",
@@ -138,6 +148,44 @@ const InternalChat = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, loadChats]);
+
+  // Typing indicator via Broadcast
+  useEffect(() => {
+    if (!selectedChat || !user) return;
+    const channel = supabase.channel(`typing_${selectedChat.id}`);
+
+    channel.on("broadcast", { event: "typing" }, (payload) => {
+      if (payload.payload?.user_id !== user.id) {
+        setOtherTyping(true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000);
+      }
+    }).subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      setOtherTyping(false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [selectedChat, user]);
+
+  const emitTyping = useCallback(() => {
+    if (!selectedChat || !user) return;
+    if (typingDebounceRef.current) return; // debounce 1s
+    supabase.channel(`typing_${selectedChat.id}`).send({
+      type: "broadcast",
+      event: "typing",
+      payload: { user_id: user.id },
+    });
+    typingDebounceRef.current = setTimeout(() => {
+      typingDebounceRef.current = null;
+    }, 1000);
+  }, [selectedChat, user]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    emitTyping();
+  };
 
   const handleSend = async () => {
     if (!newMessage.trim() || !selectedChat || !user || sending) return;
@@ -166,19 +214,16 @@ const InternalChat = () => {
     if (!user) return;
     setSearchOpen(false);
 
-    // Check existing chat (both directions)
     const { data: existing } = await supabase
       .from("internal_chats")
       .select("*")
       .or(`and(user1_id.eq.${user.id},user2_id.eq.${profile.id}),and(user1_id.eq.${profile.id},user2_id.eq.${user.id})`);
 
     if (existing && existing.length > 0) {
-      const chat = { ...existing[0], other_user: profile };
-      setSelectedChat(chat);
+      setSelectedChat({ ...existing[0], other_user: profile });
       return;
     }
 
-    // Create new chat (ensure user1_id < user2_id for consistency)
     const [u1, u2] = user.id < profile.id ? [user.id, profile.id] : [profile.id, user.id];
     const { data: newChat, error } = await supabase
       .from("internal_chats")
@@ -202,20 +247,13 @@ const InternalChat = () => {
   };
 
   const getInitials = (name: string) => name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
-
-  const formatTime = (date: string) => {
-    try { return format(new Date(date), "HH:mm", { locale: es }); } catch { return ""; }
-  };
-
-  const formatDate = (date: string) => {
-    try { return format(new Date(date), "d MMM", { locale: es }); } catch { return ""; }
-  };
+  const formatTime = (date: string) => { try { return format(new Date(date), "HH:mm", { locale: es }); } catch { return ""; } };
+  const formatDate = (date: string) => { try { return format(new Date(date), "d MMM", { locale: es }); } catch { return ""; } };
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
       {/* Chat list panel */}
       <div className={`${selectedChat ? "hidden md:flex" : "flex"} w-full md:w-80 lg:w-96 flex-col border-r border-border bg-card`}>
-        {/* Header with search */}
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Chat Interno</h2>
@@ -252,7 +290,6 @@ const InternalChat = () => {
           </div>
         </div>
 
-        {/* Chat list */}
         <ScrollArea className="flex-1">
           {chats.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
@@ -309,7 +346,11 @@ const InternalChat = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate text-foreground">{selectedChat.other_user?.full_name || "Usuario"}</p>
-                <p className="text-xs text-muted-foreground truncate">{selectedChat.other_user?.email}</p>
+                {otherTyping ? (
+                  <p className="text-xs text-primary animate-pulse">Escribiendo...</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground truncate">{selectedChat.other_user?.email}</p>
+                )}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -350,7 +391,7 @@ const InternalChat = () => {
                 <Input
                   ref={inputRef}
                   value={newMessage}
-                  onChange={e => setNewMessage(e.target.value)}
+                  onChange={handleInputChange}
                   placeholder="Escribe un mensaje..."
                   className="flex-1"
                   autoComplete="off"

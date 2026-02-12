@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Contact, Package, CheckSquare, MessageSquare, Settings, LogOut, Zap, X, Sun, Moon, ChevronLeft, ChevronRight, MessagesSquare,
+  LayoutDashboard, Users, Contact, Package, CheckSquare, Settings, LogOut, Zap, X, Sun, Moon, ChevronLeft, ChevronRight, MessagesSquare,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -13,7 +13,6 @@ const navItems = [
   { icon: Package, label: "Servicios", path: "/services" },
   { icon: CheckSquare, label: "Tareas", path: "/tasks" },
   { icon: MessagesSquare, label: "Chat", path: "/chat" },
-  { icon: MessageSquare, label: "Inbox", path: "/inbox" },
   { icon: Zap, label: "Automatizaciones", path: "/automations" },
   { icon: Settings, label: "Ajustes", path: "/settings" },
 ];
@@ -72,9 +71,6 @@ const AppSidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }: AppSidebar
             >
               <item.icon className="h-[18px] w-[18px] shrink-0" />
               {!collapsed && item.label}
-              {!collapsed && item.label === "Inbox" && (
-                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold text-accent-foreground">3</span>
-              )}
             </Link>
           );
         })}
