@@ -1,101 +1,113 @@
 
-
-# Plan: Confirmacion de Lectura, Indicador de No Leidos y Badge en Sidebar
+# Plan: Observaciones, Documentos en Clientes y Confirmacion de Eliminacion
 
 ## Resumen
 
-Anadir un sistema completo de estados de mensaje (entregado/leido) con checks visuales en las burbujas, puntos de aviso en la lista de chats para conversaciones con mensajes sin leer, y un badge en el menu lateral indicando mensajes pendientes.
+Tres mejoras: (1) campo de observaciones en el perfil de cada cliente, (2) subida y gestion de documentos asociados a clientes, (3) dialogo de confirmacion antes de eliminar clientes y contactos.
 
-## 1. Cambio en Base de Datos
+## 1. Confirmacion de Eliminacion en Clientes y Contactos
 
-Agregar columna `status` a la tabla `internal_messages`:
-- Valores: `sent` (enviado), `delivered` (entregado), `read` (leido)
-- Default: `delivered` (al insertarse ya se considera entregado)
+Ya existe el componente `DeleteConfirmDialog` pero no se usa en las paginas de Clientes ni Contactos. Actualmente al pulsar "Eliminar" se borra directamente sin confirmacion.
 
-Tambien se necesita una politica RLS para permitir UPDATE del campo `status` en mensajes de chats donde el usuario participa.
+**Cambios:**
+- En `Clients.tsx`: reemplazar el `DropdownMenuItem` de eliminar por un `DeleteConfirmDialog` con mensaje personalizado ("¿Estas seguro de eliminar este cliente?")
+- En `Contacts.tsx`: lo mismo para contactos
+- Se usara el estado `deleteId` para controlar que registro se va a eliminar con un `AlertDialog` controlado (no dentro del dropdown, para evitar problemas de cierre)
 
-```sql
-ALTER TABLE public.internal_messages ADD COLUMN status text NOT NULL DEFAULT 'delivered';
+## 2. Campo de Observaciones en el Perfil del Cliente
 
--- Permitir UPDATE solo del status para participantes del chat
-CREATE POLICY "Users can update message status in their chats"
-  ON public.internal_messages FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM internal_chats
-      WHERE internal_chats.id = internal_messages.chat_id
-      AND (internal_chats.user1_id = auth.uid() OR internal_chats.user2_id = auth.uid())
-    )
-  );
-```
+La tabla `clients` ya tiene una columna `notes` (text, nullable). Solo falta exponerla en la UI.
 
-## 2. Confirmacion de Lectura (Checks en Burbujas)
+**Cambios:**
+- En `EditClientDialog.tsx`: anadir un campo `Textarea` para "Observaciones" que mapee a `notes`, ocupando el ancho completo del formulario
+- Actualizar el estado del formulario para incluir `notes`
 
-En `InternalChat.tsx`, para los mensajes enviados por el usuario actual:
-- 1 check gris = `delivered` (entregado)
-- 2 checks azules = `read` (leido)
+## 3. Subida de Documentos por Cliente
 
-Cuando el usuario abre un chat o recibe un mensaje en el chat abierto, se ejecuta un UPDATE masivo marcando como `read` todos los mensajes del otro usuario en ese chat que no esten ya leidos.
+Se necesita almacenamiento de archivos vinculados a cada cliente.
 
-Escuchar cambios Realtime en `internal_messages` para evento UPDATE (cambio de status) y actualizar el estado local de los checks en tiempo real.
+**Base de datos:**
+- Crear un bucket de Storage llamado `client-documents` (publico para lectura, con RLS)
+- Crear tabla `client_documents` con columnas: `id`, `client_id`, `file_name`, `file_path`, `file_type`, `file_size`, `uploaded_by`, `created_at`
+- RLS: usuarios autenticados pueden CRUD
 
-## 3. Punto de No Leidos en Lista de Chats
-
-En la lista de conversaciones del panel izquierdo de `InternalChat.tsx`:
-- Consultar cuantos mensajes tienen `status != 'read'` y `sender_id != user.id` por cada chat
-- Mostrar un punto azul junto al nombre de la conversacion si hay mensajes sin leer
-
-## 4. Badge en Sidebar
-
-En `AppSidebar.tsx`:
-- Crear un hook o consulta que cuente el total de mensajes no leidos del usuario (mensajes donde `sender_id != user.id` y `status != 'read'` en chats donde participa)
-- Suscribirse a cambios Realtime para actualizar el contador
-- Mostrar un badge numerico junto al icono/label "Chat" en la navegacion
+**Interfaz:**
+- En `EditClientDialog.tsx`: anadir una seccion con pestanas (Tabs) separando "Datos" y "Documentos"
+- Pestana "Documentos": input de archivo, lista de documentos subidos con nombre/tipo/fecha, boton de descarga y boton de eliminar cada documento
+- Formatos aceptados: PDF, JPG, PNG, XML, XLSX, DOC, etc.
 
 ## Seccion Tecnica
 
-### Archivos a modificar
+### Migracion SQL
+
+```sql
+-- Bucket de Storage
+INSERT INTO storage.buckets (id, name, public) VALUES ('client-documents', 'client-documents', true);
+
+-- Politicas de storage
+CREATE POLICY "Authenticated users can upload client documents"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'client-documents');
+
+CREATE POLICY "Authenticated users can view client documents"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'client-documents');
+
+CREATE POLICY "Authenticated users can delete client documents"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'client-documents');
+
+-- Tabla de metadatos de documentos
+CREATE TABLE public.client_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  file_name text NOT NULL,
+  file_path text NOT NULL,
+  file_type text,
+  file_size bigint,
+  uploaded_by uuid REFERENCES public.profiles(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.client_documents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users full access client_documents"
+  ON public.client_documents FOR ALL TO authenticated
+  USING (true) WITH CHECK (true);
+```
+
+### Archivos a modificar/crear
 
 | Archivo | Cambio |
 |---------|--------|
-| Migracion SQL | Anadir columna `status` + politica RLS UPDATE |
-| `src/pages/InternalChat.tsx` | Checks en burbujas, marcar como leido al abrir, punto de no leidos en lista |
-| `src/components/layout/AppSidebar.tsx` | Badge con contador de mensajes no leidos |
-| `src/components/ChatNotificationListener.tsx` | Sin cambios significativos |
+| Migracion SQL | Crear bucket, tabla `client_documents`, politicas RLS |
+| `src/pages/Clients.tsx` | Usar `DeleteConfirmDialog` con AlertDialog controlado |
+| `src/pages/Contacts.tsx` | Usar `DeleteConfirmDialog` con AlertDialog controlado |
+| `src/components/dialogs/EditClientDialog.tsx` | Anadir Tabs con "Datos" y "Documentos", campo observaciones, subida/listado de archivos |
+| `src/hooks/useSupabaseData.ts` | Anadir `client_documents` al tipo `TableName` |
 
-### Flujo de estados del mensaje
+### Flujo de subida de documentos
 
 ```text
-[Enviar mensaje] --> status = 'delivered' (default)
-       |
-       v
-[Receptor abre el chat] --> UPDATE status = 'read' (todos los no leidos del otro usuario)
-       |
-       v
-[Realtime UPDATE event] --> Emisor ve los checks cambiar a doble check azul
+[Usuario selecciona archivo] --> input type="file"
+        |
+        v
+[Upload a Storage] --> supabase.storage.from('client-documents').upload(path, file)
+        |
+        v
+[Guardar metadatos] --> INSERT en client_documents (file_name, file_path, client_id, etc.)
+        |
+        v
+[Listar documentos] --> SELECT FROM client_documents WHERE client_id = :id
+        |
+        v
+[Descargar] --> supabase.storage.from('client-documents').getPublicUrl(path)
+[Eliminar] --> DELETE storage object + DELETE client_documents row
 ```
 
-### Logica de marcar como leido
+### Logica de confirmacion de eliminacion
 
-Al seleccionar un chat o al recibir un nuevo mensaje en el chat activo:
-```text
-UPDATE internal_messages
-SET status = 'read'
-WHERE chat_id = :chatId
-  AND sender_id != :userId
-  AND status != 'read'
-```
-
-### Checks visuales (solo en mensajes propios)
-
-- `delivered`: un icono `Check` en gris (10px)
-- `read`: un icono `CheckCheck` en azul (10px)
-
-Ambos se posicionan al lado de la hora en la burbuja del mensaje.
-
-### Badge en sidebar
-
-- Consulta al montar: contar mensajes donde `sender_id != user.id` AND `status != 'read'` en chats del usuario
-- Suscripcion Realtime a INSERT y UPDATE en `internal_messages` para recalcular
-- Se muestra como un circulo rojo con numero junto al icono de Chat
-
+En lugar de usar `DeleteConfirmDialog` dentro de un `DropdownMenu` (que causa problemas de cierre), se usara un `AlertDialog` controlado por estado:
+- `deleteId`: almacena el ID del cliente/contacto a eliminar
+- Al pulsar "Eliminar" en el dropdown, se guarda el ID y se abre el AlertDialog
+- Al confirmar, se ejecuta la eliminacion y se limpia el estado
