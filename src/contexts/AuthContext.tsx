@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -94,6 +96,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setNeedsMfa(false);
     setMfaFactorId(null);
   };
+
+  const handleInactivityTimeout = useCallback(async () => {
+    try {
+      await signOut();
+      toast.info("Sesión cerrada por inactividad");
+    } catch (e) {
+      console.error("Error signing out on inactivity:", e);
+    }
+  }, []);
+
+  useInactivityTimeout({
+    timeout: 10 * 60 * 1000,
+    onTimeout: handleInactivityTimeout,
+    enabled: !!user,
+  });
 
   return (
     <AuthContext.Provider value={{ user, session, loading, needsMfa, mfaFactorId, signUp, signIn, verifyMfa, signOut }}>
