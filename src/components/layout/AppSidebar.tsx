@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { toast } from "sonner";
 
 const navItems = [
@@ -28,6 +29,7 @@ const AppSidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }: AppSidebar
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const unreadCount = useUnreadMessages();
 
   const handleLogout = async () => {
     await signOut();
@@ -59,18 +61,27 @@ const AppSidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }: AppSidebar
       <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
+          const showBadge = item.path === "/chat" && unreadCount > 0;
           return (
             <Link
               key={item.path}
               to={item.path}
               onClick={onClose}
               title={collapsed ? item.label : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 relative ${
                 isActive ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
               }`}
             >
               <item.icon className="h-[18px] w-[18px] shrink-0" />
               {!collapsed && item.label}
+              {showBadge && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+              {showBadge && collapsed && (
+                <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-destructive" />
+              )}
             </Link>
           );
         })}
@@ -78,19 +89,16 @@ const AppSidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }: AppSidebar
 
       {/* Bottom controls */}
       <div className="border-t border-sidebar-border p-2 space-y-1">
-        {/* Theme toggle */}
         <button onClick={toggleTheme} className="flex items-center gap-3 rounded-lg px-3 py-2 w-full text-sm text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors">
           {theme === "light" ? <Moon className="h-[18px] w-[18px] shrink-0" /> : <Sun className="h-[18px] w-[18px] shrink-0" />}
           {!collapsed && (theme === "light" ? "Modo oscuro" : "Modo claro")}
         </button>
 
-        {/* Collapse toggle (desktop only) */}
         <button onClick={onToggleCollapse} className="hidden md:flex items-center gap-3 rounded-lg px-3 py-2 w-full text-sm text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors">
           {collapsed ? <ChevronRight className="h-[18px] w-[18px] shrink-0" /> : <ChevronLeft className="h-[18px] w-[18px] shrink-0" />}
           {!collapsed && "Colapsar menú"}
         </button>
 
-        {/* User */}
         <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-foreground shrink-0">
             {user?.email?.substring(0, 2).toUpperCase() || "U"}
