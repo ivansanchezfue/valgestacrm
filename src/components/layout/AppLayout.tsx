@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
 import AppSidebar from "./AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ChatNotificationListener from "@/components/ChatNotificationListener";
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -13,6 +14,7 @@ const AppLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <ChatNotificationListener />
       {isMobile && sidebarOpen && (
         <div className="fixed inset-0 z-30 bg-foreground/50" onClick={() => setSidebarOpen(false)} />
       )}
