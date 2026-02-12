@@ -375,6 +375,72 @@ export type Database = {
           },
         ]
       }
+      email_accounts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          email: string
+          id: string
+          imap_host: string | null
+          imap_port: number | null
+          incoming_protocol: string | null
+          is_default: boolean | null
+          password_encrypted: string | null
+          pop3_host: string | null
+          pop3_port: number | null
+          smtp_host: string | null
+          smtp_port: number | null
+          ssl_mode: string | null
+          status: string
+          type: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          email: string
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          incoming_protocol?: string | null
+          is_default?: boolean | null
+          password_encrypted?: string | null
+          pop3_host?: string | null
+          pop3_port?: number | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          ssl_mode?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          email?: string
+          id?: string
+          imap_host?: string | null
+          imap_port?: number | null
+          incoming_protocol?: string | null
+          is_default?: boolean | null
+          password_encrypted?: string | null
+          pop3_host?: string | null
+          pop3_port?: number | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          ssl_mode?: string | null
+          status?: string
+          type?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       internal_chats: {
         Row: {
           created_at: string | null
