@@ -1,39 +1,18 @@
 
 
-# Plan: Motor de Ejecucion de Automatizaciones
+# Plan: Cierre de sesion automatico por inactividad (10 minutos)
 
-## Problema Detectado
+## Resumen
 
-Las automatizaciones se guardan correctamente en la base de datos, pero **no existe ningun mecanismo backend que las ejecute**. Cuando se crea un nuevo cliente, nadie consulta las automatizaciones activas con trigger `new_lead` ni llama a la funcion `send-email`. El boton "Ejecutar ahora" solo muestra un toast visual sin hacer nada real.
+Crear un hook `useInactivityTimeout` que detecte la inactividad del usuario (sin clicks, movimientos de raton ni teclas) y cierre la sesion automaticamente tras 10 minutos. Se integrara en el `AuthProvider` para que aplique a toda la aplicacion cuando hay sesion activa.
 
-Faltan dos piezas criticas:
-1. Una funcion backend que procese automatizaciones (lea las reglas, resuelva destinatarios, ejecute acciones)
-2. Un mecanismo que dispare esa funcion cuando ocurren eventos (creacion de cliente, etc.)
+## Como funciona
 
-## Solucion
-
-### 1. Nueva funcion backend: `run-automation`
-
-Crear `supabase/functions/run-automation/index.ts` que:
-
-- Recibe un evento con tipo (`new_lead`, `manual`, etc.) y datos del contexto (ID del cliente, email, nombre)
-- Busca todas las automatizaciones activas cuyo `trigger_type` coincida
-- Para cada automatizacion, recorre sus acciones en orden:
-  - `send_email`: resuelve el destinatario (email del cliente o custom), reemplaza variables `{{nombre}}`, `{{empresa}}`, y llama internamente a la funcion `send-email`
-  - `create_task`: inserta una tarea en la tabla `tasks`
-  - `update_status`: actualiza el estado del cliente
-  - `add_tag`: anade etiqueta al cliente
-  - Otras acciones: se registran como pendientes (para futuras implementaciones)
-
-### 2. Disparar automatizaciones desde el frontend
-
-Modificar `Clients.tsx` para que al crear un cliente, llame a `run-automation` con el evento `new_lead` y los datos del cliente recien creado.
-
-Modificar `Automations.tsx` para que el boton "Ejecutar ahora" llame a `run-automation` con el evento `manual`.
-
-### 3. Mejora en `send-email`
-
-Anadir soporte para STARTTLS en la funcion de envio. Actualmente solo distingue entre `ssl` y no-ssl, pero falta el modo `starttls` que es el mas comun en puerto 587.
+- Se monitorizan eventos del navegador: `mousemove`, `mousedown`, `keydown`, `touchstart`, `scroll`
+- Cada evento reinicia un temporizador de 10 minutos (600.000 ms)
+- Si el temporizador llega a cero sin actividad, se ejecuta `signOut()` automaticamente
+- Se muestra un aviso con toast indicando que la sesion se cerro por inactividad
+- Solo se activa cuando hay un usuario autenticado
 
 ## Seccion Tecnica
 
@@ -41,45 +20,24 @@ Anadir soporte para STARTTLS en la funcion de envio. Actualmente solo distingue 
 
 | Archivo | Cambio |
 |---------|--------|
-| `supabase/functions/run-automation/index.ts` | Nueva funcion que procesa automatizaciones segun evento |
-| `supabase/functions/send-email/index.ts` | Mejorar soporte STARTTLS |
-| `src/pages/Clients.tsx` | Llamar a `run-automation` tras crear cliente |
-| `src/pages/Automations.tsx` | Conectar boton "Ejecutar ahora" con `run-automation` |
-| `supabase/config.toml` | No se modifica (auto-gestionado), pero se necesita `verify_jwt = false` para la funcion |
+| `src/hooks/useInactivityTimeout.ts` | Nuevo hook que gestiona el temporizador de inactividad |
+| `src/contexts/AuthContext.tsx` | Integrar el hook dentro del provider, activandolo solo cuando `user` no es null |
 
-### Flujo de ejecucion
+### Hook useInactivityTimeout
 
 ```text
-[Cliente creado en Clients.tsx]
-       |
-       v
-[POST /run-automation { event: "new_lead", client: { id, name, email } }]
-       |
-       v
-[run-automation lee automations WHERE trigger_type='new_lead' AND is_active=true]
-       |
-       v
-[Para cada automatizacion, recorre actions[]]
-       |
-       +-- send_email --> lee email_accounts, reemplaza variables, POST /send-email
-       +-- create_task --> INSERT INTO tasks
-       +-- update_status --> UPDATE clients SET status
-       +-- add_tag --> UPDATE clients SET tags
+Parametros: { timeout: number, onTimeout: () => void, enabled: boolean }
+
+Al montar (si enabled=true):
+  - Registrar listeners en window para mousemove, mousedown, keydown, touchstart, scroll
+  - Iniciar setTimeout de 10 min
+  - Cada evento -> clearTimeout + nuevo setTimeout
+  - Al expirar -> llamar onTimeout()
+
+Al desmontar:
+  - Limpiar todos los listeners y el timeout
 ```
 
-### Reemplazo de variables en emails
+### Integracion en AuthContext
 
-La funcion `run-automation` reemplazara las siguientes variables en asunto y cuerpo:
-- `{{nombre}}` -> nombre del cliente
-- `{{email}}` -> email del cliente
-- `{{empresa}}` -> nombre del cliente (si es empresa)
-- `{{fecha}}` -> fecha actual
-
-### Configuracion STARTTLS en send-email
-
-```text
-ssl_mode = "ssl"      -> tls: true (conexion SSL directa)
-ssl_mode = "starttls" -> tls: false + pool: false (inicia sin cifrado, negocia TLS)
-ssl_mode = "none"     -> tls: false
-```
-
+Dentro del componente `AuthProvider`, usar el hook pasandole `signOut` como callback y `!!user` como `enabled`. Asi solo se activa el temporizador cuando hay sesion.
