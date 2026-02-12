@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Clock, AlertCircle, CheckCircle2, Search, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseQuery, useSupabaseInsert, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import CreateTaskDialog from "@/components/dialogs/CreateTaskDialog";
+import EditTaskDialog from "@/components/dialogs/EditTaskDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { MoreHorizontal, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import React from "react";
@@ -37,17 +40,38 @@ const Tasks = () => {
   const deleteMutation = useSupabaseDelete("tasks");
   const { user } = useAuth();
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editTask, setEditTask] = useState<any>(null);
+
   const clientMap = Object.fromEntries((clients || []).map((c: any) => [c.id, c.name]));
 
+  const filteredTasks = tasks.filter((t: any) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      t.title?.toLowerCase().includes(q) ||
+      t.description?.toLowerCase().includes(q) ||
+      t.observations?.toLowerCase().includes(q) ||
+      t.assignee?.toLowerCase().includes(q) ||
+      (t.client_id && clientMap[t.client_id]?.toLowerCase().includes(q))
+    );
+  });
+
   const grouped = {
-    pendiente: tasks.filter((t: any) => t.status === "pendiente"),
-    en_progreso: tasks.filter((t: any) => t.status === "en_progreso"),
-    completada: tasks.filter((t: any) => t.status === "completada"),
+    pendiente: filteredTasks.filter((t: any) => t.status === "pendiente"),
+    en_progreso: filteredTasks.filter((t: any) => t.status === "en_progreso"),
+    completada: filteredTasks.filter((t: any) => t.status === "completada"),
   };
 
   const handleCreate = async (form: any) => {
     await insertMutation.mutateAsync({ ...form, created_by: user?.id });
     toast.success("Tarea creada");
+  };
+
+  const handleEdit = async (data: any) => {
+    const { id, ...fields } = data;
+    await updateMutation.mutateAsync({ id, ...fields });
+    toast.success("Tarea actualizada");
   };
 
   const nextStatus: Record<string, string> = { pendiente: "en_progreso", en_progreso: "completada" };
@@ -59,7 +83,18 @@ const Tasks = () => {
           <h1 className="text-2xl font-bold text-foreground">Tareas</h1>
           <p className="text-muted-foreground mt-1">{tasks.length} tareas en total</p>
         </div>
-        <CreateTaskDialog onCreated={handleCreate} clients={clients} />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar tareas..."
+              className="pl-9 w-[220px]"
+            />
+          </div>
+          <CreateTaskDialog onCreated={handleCreate} clients={clients} />
+        </div>
       </div>
 
       {isLoading ? (
@@ -85,6 +120,9 @@ const Tasks = () => {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setEditTask(task)}>
+                                <Pencil className="h-4 w-4 mr-2" />Editar
+                              </DropdownMenuItem>
                               {nextStatus[status] && (
                                 <DropdownMenuItem onClick={() => { updateMutation.mutateAsync({ id: task.id, status: nextStatus[status] }); toast.success("Estado actualizado"); }}>
                                   <ArrowRight className="h-4 w-4 mr-2" />Mover a {statusLabels[nextStatus[status]]}
@@ -123,6 +161,14 @@ const Tasks = () => {
           })}
         </div>
       )}
+
+      <EditTaskDialog
+        task={editTask}
+        clients={clients}
+        open={!!editTask}
+        onOpenChange={(open) => { if (!open) setEditTask(null); }}
+        onSave={handleEdit}
+      />
     </motion.div>
   );
 };
