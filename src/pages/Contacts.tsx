@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useSupabaseQuery, useSupabaseInsert, useSupabaseUpdate, useSupabaseDelete } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import CreateContactDialog from "@/components/dialogs/CreateContactDialog";
@@ -21,6 +22,7 @@ const channelLabels: Record<string, { label: string; style: string }> = {
 const Contacts = () => {
   const [search, setSearch] = useState("");
   const [editContact, setEditContact] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: contacts = [], isLoading } = useSupabaseQuery<any>("contacts");
   const { data: clients = [] } = useSupabaseQuery<any>("clients");
@@ -88,7 +90,7 @@ const Contacts = () => {
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => setEditContact(contact)}><Edit className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(contact.id)}><Trash2 className="h-4 w-4 mr-2" />Eliminar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(contact.id)}><Trash2 className="h-4 w-4 mr-2" />Eliminar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -112,6 +114,19 @@ const Contacts = () => {
         onSave={handleUpdate}
         clients={clients}
       />
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar contacto?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Se eliminará el contacto permanentemente.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (deleteId) { handleDelete(deleteId); setDeleteId(null); } }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 };
