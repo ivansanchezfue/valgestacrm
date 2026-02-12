@@ -1,98 +1,68 @@
 
-# Plan: 2FA Operativo con Google Authenticator (TOTP)
+# Plan: Edicion de Tareas y Busqueda
 
 ## Resumen
 
-Implementar autenticacion de dos factores completamente funcional usando la API MFA nativa del backend. El usuario podra activar 2FA desde Seguridad, escanear un QR real, verificar con un codigo de 6 digitos, y en cada inicio de sesion se le pedira el codigo TOTP.
+Dos mejoras: (1) crear un dialogo de edicion de tareas que permita modificar todos los campos incluidas las observaciones, y (2) anadir un buscador en la pagina de tareas que filtre por titulo, descripcion o nombre de cliente.
 
-## 1. Pagina de Seguridad - Activar/Desactivar 2FA
+## 1. Dialogo de Edicion de Tareas
 
-Reescribir la seccion 2FA en `SettingsSecurity.tsx`:
+Crear un nuevo componente `EditTaskDialog.tsx` similar al `CreateTaskDialog` pero pre-rellenado con los datos de la tarea seleccionada.
 
-- **Activar 2FA**: Al pulsar el switch, llamar a `supabase.auth.mfa.enroll({ factorType: 'totp' })` que devuelve un SVG del QR y un secreto manual.
-- **Mostrar QR**: Renderizar el SVG del codigo QR directamente en la pagina junto con la clave secreta en texto (para introduccion manual).
-- **Verificar**: El usuario introduce el codigo de 6 digitos de su app. Se llama a `supabase.auth.mfa.challenge()` y luego `supabase.auth.mfa.verify()` para activar el factor.
-- **Desactivar 2FA**: Llamar a `supabase.auth.mfa.unenroll({ factorId })` para eliminar el factor.
-- **Estado inicial**: Al cargar la pagina, consultar `supabase.auth.mfa.listFactors()` para saber si ya tiene 2FA activo.
+- Se abre desde el menu desplegable (DropdownMenu) de cada tarjeta de tarea con una nueva opcion "Editar"
+- Permite modificar: titulo, descripcion, observaciones, prioridad, fecha limite, asignado y cliente
+- Al guardar llama a `useSupabaseUpdate("tasks")` con el ID de la tarea
+- Se controla con estado externo (`editTask`) para evitar problemas de cierre del dropdown
 
-Se usara el componente `InputOTP` que ya existe en el proyecto para la entrada del codigo de 6 digitos.
+## 2. Buscador de Tareas
 
-## 2. Login con 2FA
+Anadir un campo de busqueda (Input) en la cabecera de la pagina de tareas.
 
-Modificar `Auth.tsx` y `AuthContext.tsx` para soportar el flujo MFA en el login:
-
-- Tras `signInWithPassword`, verificar el nivel de autenticacion (AAL) con `supabase.auth.mfa.getAuthenticatorAssuranceLevel()`.
-- Si el usuario tiene factores TOTP verificados y el nivel actual es `aal1` (solo contrasena), mostrar un segundo paso pidiendo el codigo de 6 digitos.
-- Llamar a `challenge()` + `verify()` con el codigo introducido para completar el login a nivel `aal2`.
-- Solo entonces navegar al dashboard.
-
-## 3. Proteccion de Rutas
-
-Actualizar `AuthContext.tsx` para exponer el estado MFA:
-- Nuevo campo `needsMfa: boolean` en el contexto.
-- En `Auth.tsx`, si `needsMfa` es true tras el login, mostrar el formulario de codigo TOTP en lugar de redirigir.
+- Filtra las tareas en tiempo real por titulo, descripcion, nombre del cliente vinculado o nombre del asignado
+- El filtrado se aplica antes del agrupamiento por estado, de forma que las tres columnas reflejan solo las tareas que coinciden con la busqueda
+- Icono de lupa decorativo dentro del input
 
 ## Seccion Tecnica
 
-### Archivos a modificar
+### Archivos a crear/modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/pages/settings/SettingsSecurity.tsx` | Reescribir seccion 2FA: enroll real con QR, verify, unenroll, listFactors |
-| `src/pages/Auth.tsx` | Anadir paso 2 de MFA tras login con contrasena |
-| `src/contexts/AuthContext.tsx` | Exponer estado MFA y metodo para verificar challenge |
+| `src/components/dialogs/EditTaskDialog.tsx` | Nuevo componente: dialogo de edicion con todos los campos de la tarea |
+| `src/pages/Tasks.tsx` | Anadir buscador con estado `searchQuery`, filtrar tareas antes del agrupamiento, anadir opcion "Editar" en el dropdown que abre el dialogo de edicion |
 
-### Flujo de activacion de 2FA (Seguridad)
-
-```text
-[Switch ON] --> mfa.enroll({ factorType: 'totp' })
-     |
-     v
-[Mostrar QR SVG + secreto manual]
-     |
-     v
-[Usuario escanea QR en Google Authenticator]
-     |
-     v
-[Introduce codigo 6 digitos] --> mfa.challenge({ factorId })
-     |                                    |
-     v                                    v
-                                   mfa.verify({ factorId, challengeId, code })
-     |
-     v
-[2FA activado - factor verificado]
-```
-
-### Flujo de login con 2FA
+### Flujo de edicion
 
 ```text
-[Email + Password] --> signInWithPassword()
-     |
-     v
-[mfa.getAuthenticatorAssuranceLevel()]
-     |
-     +-- currentLevel == 'aal1' AND nextLevel == 'aal2'
-     |       |
-     |       v
-     |   [Mostrar input TOTP de 6 digitos]
-     |       |
-     |       v
-     |   mfa.challenge({ factorId }) --> mfa.verify({ factorId, challengeId, code })
-     |       |
-     |       v
-     |   [Login completo - navegar a /]
-     |
-     +-- currentLevel == 'aal1' AND nextLevel == 'aal1' (sin 2FA)
-             |
-             v
-         [Login completo - navegar a /]
+[Click "..." en tarjeta] --> [Opcion "Editar"]
+        |
+        v
+[setEditTask(task)] --> Abre EditTaskDialog con datos pre-rellenados
+        |
+        v
+[Usuario modifica campos] --> [Guardar]
+        |
+        v
+updateMutation.mutateAsync({ id, ...campos }) --> toast.success --> cerrar dialogo
 ```
 
-### API de Supabase MFA utilizada
+### Logica de busqueda
 
-- `supabase.auth.mfa.enroll({ factorType: 'totp' })` - Devuelve `{ id, type, totp: { qr_code, secret, uri } }`
-- `supabase.auth.mfa.challenge({ factorId })` - Devuelve `{ id }` (challenge ID)
-- `supabase.auth.mfa.verify({ factorId, challengeId, code })` - Verifica el codigo TOTP
-- `supabase.auth.mfa.unenroll({ factorId })` - Elimina el factor
-- `supabase.auth.mfa.listFactors()` - Lista factores activos
-- `supabase.auth.mfa.getAuthenticatorAssuranceLevel()` - Devuelve `{ currentLevel, nextLevel }`
+```text
+[Input de busqueda] --> searchQuery state
+        |
+        v
+[Filtrar tasks]: task.title, task.description, task.observations,
+                 task.assignee, clientMap[task.client_id]
+        |
+        v
+[Agrupar filteredTasks por status] --> Renderizar columnas Kanban
+```
+
+### EditTaskDialog - Estructura
+
+Reutiliza la misma estructura visual que `CreateTaskDialog`:
+- Recibe como prop la tarea a editar y callbacks `onSave` y `onClose`
+- Estado del formulario inicializado con los valores actuales de la tarea
+- Boton "Guardar cambios" en lugar de "Crear Tarea"
+- Se controla con `open`/`onOpenChange` externo desde `Tasks.tsx`
