@@ -1,0 +1,58 @@
+name: Build and Release Docker Image
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build \
+          --build-arg VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
+          --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}" \
+          -t valgestacrm:latest \
+          .
+    
+    - name: Export Docker image to tar
+      run: |
+        docker save -o valgestacrm-docker-image.tar valgestacrm:latest
+        
+    - name: Get image size
+      run: |
+        ls -lh valgestacrm-docker-image.tar
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgestacrm-docker-image
+        path: valgestacrm-docker-image.tar
+        retention-days: 30
+    
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: build-${{ github.run_number }}
+        name: Build ${{ github.run_number }}
+        files: valgestacrm-docker-image.tar
+        body: |
+          ## Docker Image Build
+
+          Imagen Docker compilada automáticamente
+  
+          Commit: ${{ github.sha }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
