@@ -30,7 +30,6 @@ jobs:
     - name: Compress tar with gzip
       run: |
         gzip -9 valgestacrm-docker-image.tar
-        mv valgestacrm-docker-image.tar.gz valgestacrm-docker-image.tar.gz
         
     - name: Get image size
       run: |
