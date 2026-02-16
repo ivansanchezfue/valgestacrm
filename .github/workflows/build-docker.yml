@@ -15,12 +15,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Build Docker image
+    - name: Build Docker image (without BuildKit for consistency)
       run: |
-        docker build \
+        DOCKER_BUILDKIT=0 docker build \
           --build-arg VITE_SUPABASE_URL="${{ secrets.VITE_SUPABASE_URL }}" \
           --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}" \
           -t valgestacrm:latest \
@@ -30,13 +27,21 @@ jobs:
       run: |
         docker save -o valgestacrm-docker-image.tar valgestacrm:latest
         
+    - name: Compress tar with gzip
+      run: |
+        gzip -9 valgestacrm-docker-image.tar
+        mv valgestacrm-docker-image.tar.gz valgestacrm-docker-image.tar.gz
+        
     - name: Get image size
       run: |
-        ls -lh valgestacrm-docker-image.tar
+        echo "=== Tamaños de archivo ==="
+        ls -lh valgestacrm-docker-image.tar.gz
+        echo ""
+        echo "Descomprimido sería: $(gzip -l valgestacrm-docker-image.tar.gz | tail -1 | awk '{print $2}') bytes"
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: valgestacrm-docker-image
-        path: valgestacrm-docker-image.tar
+        path: valgestacrm-docker-image.tar.gz
         retention-days: 30
