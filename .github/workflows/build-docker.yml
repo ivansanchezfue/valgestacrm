@@ -40,19 +40,3 @@ jobs:
         name: valgestacrm-docker-image
         path: valgestacrm-docker-image.tar
         retention-days: 30
-    
-    - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: build-${{ github.run_number }}
-        name: Build ${{ github.run_number }}
-        files: valgestacrm-docker-image.tar
-        body: |
-          ## Docker Image Build
-
-          Imagen Docker compilada automáticamente
-  
-          Commit: ${{ github.sha }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
