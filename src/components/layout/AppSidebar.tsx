@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Users, Contact, Package, CheckSquare, Settings, LogOut, Zap, X, Sun, Moon, ChevronLeft, ChevronRight, MessagesSquare,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ const AppSidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }: AppSidebar
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { appName } = useBranding();
   const unreadCount = useUnreadMessages();
 
   const handleLogout = async () => {
@@ -50,7 +52,7 @@ const AppSidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }: AppSidebar
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent shrink-0">
             <Zap className="h-5 w-5 text-accent-foreground" />
           </div>
-          {!collapsed && <span className="text-lg font-bold text-sidebar-foreground tracking-tight whitespace-nowrap">ValgestaCRM</span>}
+          {!collapsed && <span className="text-lg font-bold text-sidebar-foreground tracking-tight whitespace-nowrap">{appName}</span>}
         </div>
         <button onClick={onClose} className="text-sidebar-muted hover:text-sidebar-foreground md:hidden">
           <X className="h-5 w-5" />

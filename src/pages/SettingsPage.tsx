@@ -13,6 +13,7 @@ import {
   FileText,
   Users,
   ChevronRight,
+  Palette,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,6 +24,7 @@ const sections = [
       { icon: User, label: "Perfil", description: "Nombre, email, avatar", path: "/settings/profile", badge: null },
       { icon: Shield, label: "Seguridad", description: "Contraseña, 2FA", path: "/settings/security", badge: null },
       { icon: Bell, label: "Notificaciones", description: "Email, push, in-app", path: "/settings/notifications", badge: null },
+      { icon: Palette, label: "Personalización", description: "Nombre, favicon, colores del menú", path: "/settings/customization", badge: null },
     ],
   },
   {

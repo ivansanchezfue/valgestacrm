@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { BrandingProvider } from "./contexts/BrandingContext";
 import AppLayout from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -27,6 +28,7 @@ import SettingsEmailAccounts from "./pages/settings/SettingsEmailAccounts";
 import SettingsWhatsApp from "./pages/settings/SettingsWhatsApp";
 import SettingsTelegram from "./pages/settings/SettingsTelegram";
 import SettingsGoogleCalendar from "./pages/settings/SettingsGoogleCalendar";
+import SettingsCustomization from "./pages/settings/SettingsCustomization";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +68,7 @@ const AppRoutes = () => {
         <Route path="/settings/whatsapp" element={<SettingsWhatsApp />} />
         <Route path="/settings/telegram" element={<SettingsTelegram />} />
         <Route path="/settings/calendar" element={<SettingsGoogleCalendar />} />
+        <Route path="/settings/customization" element={<SettingsCustomization />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -76,6 +79,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
+        <BrandingProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -83,6 +87,7 @@ const App = () => (
             <AppRoutes />
           </BrowserRouter>
         </TooltipProvider>
+        </BrandingProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
