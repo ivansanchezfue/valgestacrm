@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
 import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
@@ -17,6 +18,7 @@ const Auth = () => {
   const [otpCode, setOtpCode] = useState("");
   const [verifyingMfa, setVerifyingMfa] = useState(false);
   const { signIn, verifyMfa } = useAuth();
+  const { appName } = useBranding();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +29,7 @@ const Auth = () => {
       if (result.needsMfa) {
         setMfaStep(true);
       } else {
-        toast.success("Bienvenido a ValgestaCRM");
+        toast.success(`Bienvenido a ${appName}`);
         navigate("/");
       }
     } catch (err: any) {
@@ -42,7 +44,7 @@ const Auth = () => {
     setVerifyingMfa(true);
     try {
       await verifyMfa(otpCode);
-      toast.success("Bienvenido a ValgestaCRM");
+      toast.success(`Bienvenido a ${appName}`);
       navigate("/");
     } catch (err: any) {
       toast.error(err.message || "Código inválido");
@@ -63,7 +65,7 @@ const Auth = () => {
           <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-accent mb-4">
             <Zap className="h-7 w-7 text-accent-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">ValgestaCRM</h1>
+          <h1 className="text-2xl font-bold text-foreground">{appName}</h1>
           <p className="text-muted-foreground mt-1">
             {mfaStep ? "Verificación de dos factores" : "Inicia sesión en tu cuenta"}
           </p>

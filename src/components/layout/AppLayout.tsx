@@ -3,12 +3,14 @@ import { Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
 import AppSidebar from "./AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useBranding } from "@/contexts/BrandingContext";
 import ChatNotificationListener from "@/components/ChatNotificationListener";
 
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const isMobile = useIsMobile();
+  const { appName } = useBranding();
 
   const marginLeft = isMobile ? "ml-0" : collapsed ? "ml-[68px]" : "ml-64";
 
@@ -28,7 +30,7 @@ const AppLayout = () => {
         {isMobile && (
           <div className="sticky top-0 z-20 flex items-center gap-3 border-b bg-background px-4 py-3">
             <button onClick={() => setSidebarOpen(true)}><Menu className="h-5 w-5 text-foreground" /></button>
-            <span className="text-lg font-bold text-foreground tracking-tight">ValgestaCRM</span>
+            <span className="text-lg font-bold text-foreground tracking-tight">{appName}</span>
           </div>
         )}
         <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px]">
